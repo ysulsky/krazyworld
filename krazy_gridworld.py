@@ -34,23 +34,20 @@ class TileTypes:
             self.death = 7
             self.ice = 8
             self.energy = 9
-            self.all_tt = [self.hole, self.normal, self.goal, self.agent, self.transporter, self.door,
-                           self.key, self.death, self.ice, self.energy]
-            self.initial_colors = [
+            self.permutation = np.arange(10, dtype=np.uint8)
+            self.colors = [
                 Color.black, Color.white, Color.gold, Color.blue, Color.orange, Color.silver,
                 Color.magenta, Color.red, Color.purple, Color.green]
-            self.colors = list(self.initial_colors)
             self._rng = rng
 
-        def switch_tile_type_values(self):
-            shuffled_idxs = list(range(len(self.all_tt)))
-            self._rng.shuffle(shuffled_idxs)
-            for i, tt_idx in enumerate(shuffled_idxs):
-                self.all_tt[i] = tt_idx
+        def permute(self):
+            self.permutation = self._rng.permutation(np.arange(len(self.permutation), dtype=np.uint8))
 
-        def reset_colors(self):
-            self.colors = list(self.initial_colors)
-            self._rng.shuffle(self.colors)
+        def __len__(self):
+            return len(self.permutation)
+
+        def __getitem__(self, i):
+            return self.permutation[i]
 
 
 class Agent:
@@ -279,7 +276,7 @@ class KrazyGridWorld:
         self.num_goals_obtained = 0
         self.game_grid.grid_np = copy.deepcopy(self.game_grid.game_grid_init)
         if reset_colors:
-            self.tile_types.reset_colors()
+            self.tile_types.permute()
         if reset_dynamics:
             self.agent.change_dynamics()
         if reset_board:
@@ -383,9 +380,10 @@ class KrazyGridWorld:
         agent_p = self.agent.agent_position
         grid_np[agent_p[0], agent_p[1]] = self.tile_types.agent
         grid_np = grid_np.astype(np.uint8)
+        grid_np = self.tile_types[grid_np]
         #agent_p = np.array(self.agent.agent_position)
         if self.one_hot_obs:
-            n_values = len(self.tile_types.all_tt)
+            n_values = len(self.tile_types)
             grid_np = np.eye(n_values)[grid_np]
             #agent_p_temp = np.zeros((self.game_grid.grid_squares_per_row, self.game_grid.grid_squares_per_row, 1))
             #agent_p_temp[agent_p[0], agent_p[1], :] = 1
@@ -410,8 +408,8 @@ class KrazyGridWorld:
         grid_np = copy.deepcopy(self.game_grid.grid_np)
         grid_np[self.agent.agent_position[0], self.agent.agent_position[1]] = self.tile_types.agent
         fake_img = np.zeros((self.game_grid.grid_squares_per_row, self.game_grid.grid_squares_per_row, 3))
-        for i in range(len(self.tile_types.all_tt)):
-            is_grid_sq_color_i = grid_np == self.tile_types.all_tt[i]
+        for i in range(len(self.tile_types)):
+            is_grid_sq_color_i = grid_np == self.tile_types[i]
             one_idxs = is_grid_sq_color_i.astype(int)
             one_idxs = np.tile(np.expand_dims(one_idxs, -1), 3)
             one_idxs = one_idxs * np.array(self.tile_types.colors[i].value)
